@@ -16,6 +16,25 @@ type Client interface {
 	UpdateTopicReplicas(ctx context.Context, topic *Topic, replicas int16) (bool, error)
 	UpdateTopicConfig(ctx context.Context, topic *Topic, configs map[string]string) (bool, error)
 	DeleteTopic(ctx context.Context, name string) error
+
+	// ListAcls returns all ACLs currently defined on the broker for the given principal.
+	ListAcls(ctx context.Context, principal string) ([]Acl, error)
+	// CreateAcls creates the given ACLs for the principal (idempotent on the broker).
+	CreateAcls(ctx context.Context, principal string, acls []Acl) error
+	// DeleteAcls deletes the given ACLs for the principal.
+	DeleteAcls(ctx context.Context, principal string, acls []Acl) error
+}
+
+// Acl is a neutral (broker-agnostic) representation of a single Kafka ACL.
+// All fields are strings so the value is comparable and can be used as a map
+// key for set-based diffing. Enum values mirror the api/v1alpha1 Acl* string types.
+type Acl struct {
+	ResourceType   string // Topic|Group|Cluster|TransactionalId
+	ResourceName   string
+	PatternType    string // Literal|Prefixed
+	Operation      string // Read|Write|...|All
+	PermissionType string // Allow|Deny
+	Host           string
 }
 
 type Topic struct {

@@ -23,6 +23,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	cskafkav1alpha1 "github.com/sap/kafka-operator/api/v1alpha1"
+	aclcontroller "github.com/sap/kafka-operator/internal/controllers/acl"
 	topiccontroller "github.com/sap/kafka-operator/internal/controllers/topic"
 )
 
@@ -73,7 +74,7 @@ func main() {
 		Scheme: scheme,
 		Client: client.Options{
 			Cache: &client.CacheOptions{
-				DisableFor: []client.Object{&cskafkav1alpha1.Topic{}},
+				DisableFor: []client.Object{&cskafkav1alpha1.Topic{}, &cskafkav1alpha1.Acl{}},
 			},
 		},
 		LeaderElection:                enableLeaderElection,
@@ -95,6 +96,11 @@ func main() {
 	}
 
 	if err := topiccontroller.NewReconciler(operatorName, mgr.GetClient(), mgr.GetEventRecorderFor(operatorName)).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "error registering reconciler with manager")
+		os.Exit(1)
+	}
+
+	if err := aclcontroller.NewReconciler(operatorName, mgr.GetClient(), mgr.GetEventRecorderFor(operatorName)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "error registering reconciler with manager")
 		os.Exit(1)
 	}

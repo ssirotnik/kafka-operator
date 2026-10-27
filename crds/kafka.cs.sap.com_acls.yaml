@@ -1,0 +1,283 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: acls.kafka.cs.sap.com
+spec:
+  group: kafka.cs.sap.com
+  names:
+    kind: Acl
+    listKind: AclList
+    plural: acls
+    singular: acl
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.principal
+      name: Principal
+      type: string
+    - jsonPath: .status.state
+      name: State
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].reason
+      name: Reason
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Acl is the Schema for the Acls API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AclSpec defines the desired state of Acl.
+            properties:
+              connectionSecretRef:
+                description: Reference to a secret containing the connection details
+                  (see pkg/api#ConnectionDetails)
+                properties:
+                  key:
+                    minLength: 1
+                    type: string
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              entries:
+                items:
+                  description: AclEntry is either a low-level Rule or a high-level
+                    Access shortcut (exactly one).
+                  properties:
+                    access:
+                      description: A high-level access shortcut that expands to one
+                        or more low-level rules.
+                      properties:
+                        group:
+                          default: '*'
+                          description: Consumer group for Consume/ReadWrite access;
+                            defaults to the wildcard "*".
+                          type: string
+                        host:
+                          default: '*'
+                          type: string
+                        patternType:
+                          default: Literal
+                          description: AclPatternType identifies how the resource
+                            name is matched.
+                          enum:
+                          - Literal
+                          - Prefixed
+                          type: string
+                        topic:
+                          minLength: 1
+                          type: string
+                        type:
+                          description: AclAccessType is a high-level access shortcut
+                            that expands to a set of low-level rules.
+                          enum:
+                          - Consume
+                          - Produce
+                          - ReadWrite
+                          type: string
+                      required:
+                      - topic
+                      - type
+                      type: object
+                    rule:
+                      description: A low-level, full-fidelity ACL rule.
+                      properties:
+                        host:
+                          default: '*'
+                          type: string
+                        operation:
+                          description: AclOperation is a Kafka ACL operation.
+                          enum:
+                          - Read
+                          - Write
+                          - Create
+                          - Delete
+                          - Alter
+                          - Describe
+                          - ClusterAction
+                          - DescribeConfigs
+                          - AlterConfigs
+                          - IdempotentWrite
+                          - All
+                          type: string
+                        patternType:
+                          default: Literal
+                          description: AclPatternType identifies how the resource
+                            name is matched.
+                          enum:
+                          - Literal
+                          - Prefixed
+                          type: string
+                        permissionType:
+                          default: Allow
+                          description: AclPermissionType is whether an ACL grants
+                            or denies access.
+                          enum:
+                          - Allow
+                          - Deny
+                          type: string
+                        resourceName:
+                          description: Name of the resource. Ignored for Cluster (Kafka
+                            uses the fixed name "kafka-cluster").
+                          type: string
+                        resourceType:
+                          default: Topic
+                          description: AclResourceType identifies the Kafka resource
+                            an ACL applies to.
+                          enum:
+                          - Topic
+                          - Group
+                          - Cluster
+                          - TransactionalId
+                          type: string
+                      required:
+                      - operation
+                      type: object
+                  type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of rule or access must be set
+                    rule: has(self.rule) != has(self.access)
+                minItems: 1
+                type: array
+              principal:
+                description: The principal the ACLs apply to, in Kafka's full form,
+                  e.g. "User:alice".
+                pattern: ^[A-Za-z]+:.+$
+                type: string
+            required:
+            - connectionSecretRef
+            - entries
+            - principal
+            type: object
+          status:
+            default:
+              observedGeneration: -1
+            description: AclStatus defines the observed state of Acl.
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              details:
+                items:
+                  description: AclDetail is a flattened snapshot of one ACL currently
+                    synchronized on the broker.
+                  properties:
+                    host:
+                      type: string
+                    operation:
+                      description: AclOperation is a Kafka ACL operation.
+                      type: string
+                    patternType:
+                      description: AclPatternType identifies how the resource name
+                        is matched.
+                      type: string
+                    permissionType:
+                      description: AclPermissionType is whether an ACL grants or denies
+                        access.
+                      type: string
+                    resourceName:
+                      type: string
+                    resourceType:
+                      description: AclResourceType identifies the Kafka resource an
+                        ACL applies to.
+                      type: string
+                  type: object
+                type: array
+              lastObservedAt:
+                format: date-time
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+              state:
+                type: string
+            required:
+            - observedGeneration
+            type: object
+        type: object
+        x-kubernetes-validations:
+        - message: spec.principal is immutable
+          rule: self.spec.principal == oldSelf.spec.principal
+    served: true
+    storage: true
+    subresources:
+      status: {}
